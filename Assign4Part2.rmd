@@ -1,0 +1,118 @@
+---
+title: "Assignment 4 Part 1"
+author: "Krista Bennatti-Roberts"
+date: "November 13, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(knitr)
+library(fpp)
+```
+
+Set up data:
+```{r}
+finalproj = read.csv("C:/Users/K/Dropbox/Econ Forecasting/Econ R/Final project/lbrforce.csv")
+
+head(finalproj)
+lbrts = ts(finalproj, start = 1948, end = c(2017,8), frequency = 12)
+train = window(lbrts, start = c(1948, 1), end = c(2003, 12))
+test = window(lbrts, start = c(2004, 1), end =c(2017,8))
+trainLbr = train[,2]
+testLbr = test[,2]
+
+h = length(testLbr)
+h
+```
+
+Run a variety of models
+```{r}
+#average
+fitMean = meanf(trainLbr, h=h)
+#naive
+fitnaive = naive(trainLbr, h=h)
+#seasonal naive
+fitsnaive = snaive(trainLbr, h=h)
+#linear trend
+tslmlbr = tslm(trainLbr ~ trend)
+fittslm = forecast(tslmlbr, h=h)
+#exponential
+fitses = ses(trainLbr, h=h)
+#holt-winter's multiplicative
+fithw_m = hw(trainLbr, seasonal="multiplicative", h=h)
+fithw_m$model
+#holt-winter's damped
+fithw_m_d = hw(trainLbr, seasonal="multiplicative", damped = TRUE, h=h)
+fithw_m_d$model
+#error trend seasonl (ETS)
+etslbr = ets(trainLbr, model = "ZZZ")
+fitets = forecast(etslbr, h=h)
+fitets$model
+#ARIMA
+arima_lbr= auto.arima(trainLbr)
+fitarima = forecast(arima_lbr, h=h)
+
+```
+
+Determine accuracy of each model:
+```{r}
+amean = accuracy(fitMean, testLbr)
+anaive= accuracy(fitnaive, testLbr)
+asnaive= accuracy(fitsnaive, testLbr)
+atslm= accuracy(fittslm, testLbr)
+ases= accuracy(fitses, testLbr)
+ahwm= accuracy(fithw_m, testLbr)
+ahwmd= accuracy(fithw_m_d, testLbr)
+aets= accuracy(fitets, testLbr)
+aarima = accuracy(fitarima, testLbr)
+```
+
+Combine accuracy into table and sort by MASE:
+```{r}
+accTable = rbind(amean, anaive, asnaive, atslm, ases, ahwm, ahwmd, aets, aarima)
+row.names(accTable)= c("Mean Train", "Mean Test","Naive Train", "Naive Test", 
+                       "SNaive Train", "SNaive Test", "Linear Train", "Linear Test", 
+                       "SES Train", "SES Test","HW Mult Train", "HW Mult Test", 
+                       "HW Damped Train", "HW Damped Test", "ETS Train", "ETS Test", "Arima Train", "Arima Test")
+#order by MASE
+accFrame = as.data.frame(accTable)
+print(accFrame[order(accFrame$MASE),])
+```
+
+The best performing model is Holt-Winter's multiplicative damped according to the MASE metric
+
+Use the best model to forecast 6 periods into the future
+```{r}
+hw_d_future = hw(lbrts[,2], seasonal="multiplicative", damped = TRUE, h=6)
+summary(hw_d_future)
+```
+
+Plot some of the forecasts (HW damped, ets, arima, naive, linear trend)
+Note: I've split the plots because the forecasts cannot all be seen together.
+```{r}
+plot(fithw_m_d, xlab = "Years", ylab ='%', main = 'Labour Force Participation Rate Forecasts', PI = FALSE)
+lines(testLbr)
+lines(fitets$mean, col = 'yellow')
+lines(fitarima$mean, col = 'purple')
+lines(fitnaive$mean, col = 'red')
+lines(fittslm$mean, col = "pink")
+legend('topleft', lty =1, col =c('Blue','Yellow','Purple', 'Red', 'Pink'), 
+       legend = c('HW Damped', 'ETS', 'Arima', 'Naive', 'Linear Trend'))
+```
+
+Plot the rest of the forecasts:
+```{r}
+plot(fitMean, xlab = "Years", ylab ='%', main = 'Labour Force Participation Rate Forecasts Cont\'d', PI = FALSE)
+lines(testLbr)
+lines(fitsnaive$mean, col = 'orange')
+lines(fithw_m$mean, col = "purple")
+lines(fitses$mean, col = 'red')
+legend('topleft', lty =1, col =c('Blue','Orange','Purple','Red'), 
+       legend = c('Mean', 'Seasonal Naive', 'HW', 'SES'))
+```
+
+

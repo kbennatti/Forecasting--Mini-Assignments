@@ -25,7 +25,7 @@ tail(magna)
 mgts = ts(magna, start = c(2000,1), end = c(2017,1), frequency = 4)
 # split into training and testing
 mtraints = window(mgts, start = c(2000, 1), end = c(2014, 4)) 
-mtestts = window(mgts, start = c(2015, 1))
+mtestts = window(mgts, start = c(2015, 1), end = c(2017, 1))
 ```
 
 Plot the data for fun
@@ -42,6 +42,7 @@ fit = tslm(MGA ~ GDP, data = mtraints)
 plot(MGA ~ GDP, data = mtraints, xlab = "GDP", ylab = "MGA Sales", main = "Linear Model")
 abline(fit)
 ```
+
 Comment: Visually, line fits data reasonably well. Some outliers around GDP = 14000.
 
 Explore fit of model some more
@@ -51,20 +52,20 @@ anova(fit)
 ```
 
 Comments:
-Adjusted R squared shows that GDP explains 81% of the variability in sales, implying a relatively good fit.
-Residual standard error of 742.2 is reasonably close to 711 standard error, also implying relatively good fit.
+Adjusted R squared shows that GDP explains approximately 86% of the variability in sales, implying a relatively good fit.
+
+
 
 Plot residuals
 ```{r}
 res = residuals(fit)
-print(res)
 plot(res, type = "p", xlab = "Years", ylab = "Residuals", main = "Residual Plot")
 abline(0,0)
 ```
 
 
 
-Comment: Residuals appear to have a slight cyclical trend and may not be completely random although trend is not prominent. The  outliers are once again notable.
+Comment: The residuals have no prominent trend and appear reasonably random, implying an okay fit. However there may be a slight cylical trend present and there are more positive residuals than negative. There are also a few notable outliers.
 
 More Residual Plots
 ```{r}
@@ -72,7 +73,8 @@ par(mfrow = c(2,2))
 plot(fit)
 par(mfrow = c(1,1))
 ```
-Comment: Q-Q plot shows moderate skew. However, resdiduals tend to cluster around line with the exception of a number of notable outliers. 
+
+Comment: Q-Q plot shows resdiduals tend to cluster around line (indicating normalility) with the exception of a number of notable outliers. 
 There are three outliers identified (#37, 38, 39) by scale-location, residuals vs fitted and the Q-Q plots,
 Two influential outliers identified by Cook's distance (#36, 54).
 
@@ -80,14 +82,17 @@ b) Use scenario forecasting to forecast Magna sales over the test period. Use a 
 
 Create GDP forecast using RWF with drift for scenario forecast
 ```{r}
-h = length(mtestts)
+h = length(mtestts[,'GDP'])
+h
 fcastgdp = rwf(mtraints[,'GDP'], h=h, drift = TRUE)
+print(fcastgdp)
 plot(fcastgdp, xlab = "Year", ylab = 'GDP', main = 'GDP Forecast using RW w Drift')
 ```
 
 Forecast sales using GDP forecast as input
 ```{r}
 fcastsales = forecast(fit, newdata = data.frame(GDP = c(fcastgdp$mean)))
+print(fcastsales)
 plot(fcastsales, xlab = "Year", ylab = 'MGA Sales', main = "Scenario Forecast Based on GDP RWF w/ Drift")
 ```
 
@@ -96,13 +101,16 @@ c) Use a linear trend to forecast Magna sales for the test period. 4 points
 ```{r}
 salesfit = tslm(MGA ~ trend, data = mtraints)
 fcastlin = forecast(salesfit, h=h)
+print(fcastlin)
 plot(fcastlin, xlab = "Year", ylab = 'MGA Sales', main = "Linear Trend Forecast of Magna Sales" )
 ```
 
 d) Compare the accuracy of the two forecasting models. Which model forecasts the best? 4 points
 
 ```{r}
+#Accuracy of linear model
 acclin = print(accuracy(fcastlin$mean, mtestts[,'MGA']))
+#Accuracy of scenario model
 accsen = print(accuracy(fcastsales$mean, mtestts[,'MGA'] ))
 ```
 Comment: The linear trend forecast is the better forecaset based on the RMSE metric 

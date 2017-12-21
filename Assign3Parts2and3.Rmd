@@ -1,0 +1,174 @@
+---
+title: "Assignment 3 Parts 2 and 3"
+author: "Krista Bennatti-Roberts"
+date: "October 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+2. This question uses the Staples sales data from Assignment 1. Use the same training and test data sets that you used for Assignment 1. 
+
+For this data set determine the best forecasting method (average, naïve, seasonal naïve, linear trend, STL decomposition, exponential smoothing, Holt-Winters' method, ETS). Using the best model, forecast Staples sales for 2017:3 to 2018:2. 10 points
+
+Get necessary libraries:
+
+```{r message=FALSE} 
+library(fpp)
+library(knitr)
+```
+
+Set up training and testing:
+
+```{r}
+stp_hd = read.csv("C:/schulich/Econ R/Assignments/as1_data.csv")
+series = ts(stp_hd, start = 2000, frequency = 4)
+train = window(series, start = c(2000,1), end = c(2013, 4))
+test = window(series, start = c(2014, 1), end = c(2017, 2))
+head(series)
+```
+
+
+STAPLES
+
+
+Set up
+```{r}
+trainstp = train[,4]
+teststp = test[,4]
+tail(trainstp)
+tail(teststp)
+h = length(teststp)
+h
+```
+
+Run the models:
+
+```{r}
+#average, naive, seasonal naive
+fitmean = meanf(trainstp, h=h)
+fitnaive = naive(trainstp, h=h)
+fitsnaive = snaive(trainstp, h=h)
+#linear trend
+tslmstp = tslm(trainstp ~ trend)
+fittslm = forecast(tslmstp, h=h)
+#stl
+stlstp= stl(trainstp, t.window=15, s.window="periodic", robust=TRUE)
+fitstl= forecast(stlstp, method='rwdrift', h=h)
+#exponential
+fitses = ses(trainstp, h=h)
+#holt-winter's multiplicative
+fithw_m = hw(trainstp, seasonal="multiplicative", h=h)
+#holt-winter's damped
+fithw_m_d = hw(trainstp, seasonal="multiplicative", damped = TRUE, h=h)
+#error trend seasonl (ETS)
+etsstp = ets(trainstp, model = "ZZZ")
+fitets = forecast(etsstp, h=h)
+```
+
+Determine accuracy
+
+```{r}
+am = accuracy(fitmean, teststp)
+an= accuracy(fitnaive, teststp)
+asn= accuracy(fitsnaive, teststp)
+atslm= accuracy(fittslm, teststp)
+astl = accuracy(fitstl, teststp)
+ases= accuracy(fitses, teststp)
+ahwm= accuracy(fithw_m, teststp)
+ahwmd= accuracy(fithw_m_d, teststp)
+aets= accuracy(fitets, teststp)
+
+#combine accuracy into table
+
+accTable = rbind(am,an,asn,atslm, astl, ases,ahwm, ahwmd,aets)
+row.names(accTable)= c("Mean Train", "Mean Test","Naive Train", "Naive Test", 
+                       "SNaive Train", "SNaive Test", "Linear Train", "Linear Test", "STL Train", "STL Test",
+                       "SES Train", "SES Test","HW Mult Train", "HW Mult Test", 
+                       "HW Damped Train", "HW Damped Test", "ETS Train", "ETS Test")
+#order by MASE
+accFrame = as.data.frame(accTable)
+print(accFrame[order(accFrame$MASE),])
+```
+
+Holt-Winter's (multiplicative) is the best model according to the MASE metric
+
+Forecast sales for 2017 Q3 through 2018 Q2 using the best model
+
+```{r}
+hw_m_future= hw(series[,4], seasonal="multiplicative", h=4)
+summary(hw_m_future)
+```
+
+HOME DEPOT
+
+Set up:
+```{r}
+trainhd = train[,3]
+testhd = test[,3]
+tail(testhd)
+h = length(teststp)
+h
+```
+
+
+Run the models
+
+```{r}
+#average, naive, seasonal naive
+fitmean = meanf(trainhd, h=h)
+fitnaive = naive(trainhd, h=h)
+fitsnaive = snaive(trainhd, h=h)
+#linear trend
+tslmstp = tslm(trainhd ~ trend)
+fittslm = forecast(tslmstp, h=h)
+#stl
+stlstp= stl(trainhd, t.window=15, s.window="periodic", robust=TRUE)
+fitstl= forecast(stlstp, method= 'rwdrift', h=h)
+#exponential
+fitses = ses(trainhd, h=h)
+#holt-winter's multiplicative
+fithw_m = hw(trainhd, seasonal="multiplicative", h=h)
+#holt-winter's damped
+fithw_m_d = hw(trainhd, seasonal="multiplicative", damped = TRUE, h=h)
+#error trend seasonl (ETS)
+etslbr = ets(trainhd, model = "ZZZ")
+fitets = forecast(etslbr, h=h)
+```
+
+Determine accuracy of the models
+
+```{r}
+am = accuracy(fitmean, testhd)
+an= accuracy(fitnaive, testhd)
+asn= accuracy(fitsnaive, testhd)
+atslm= accuracy(fittslm, testhd)
+astl = accuracy(fitstl, testhd)
+ases= accuracy(fitses, testhd)
+ahwm= accuracy(fithw_m, testhd)
+ahwmd= accuracy(fithw_m_d, testhd)
+aets= accuracy(fitets, testhd)
+
+#combine accuracy into table
+
+accTable = rbind(am,an,asn,atslm, astl, ases,ahwm, ahwmd,aets)
+row.names(accTable)= c("Mean Train", "Mean Test","Naive Train", "Naive Test", 
+                       "SNaive Train", "SNaive Test", "Linear Train", "Linear Test", "STL Train", "STL Test",
+                       "SES Train", "SES Test","HW Mult Train", "HW Mult Test", 
+                       "HW Damped Train", "HW Damped Test", "ETS Train", "ETS Test")
+#order by MASE
+accFrame = as.data.frame(accTable)
+print(accFrame[order(accFrame$MASE),])
+```
+
+STL is the best (most accurate) model according to the MASE metric
+
+Forecast sales for 2017 Q3 through 2018 Q2 
+```{r}
+stlstp= stl(series[,3], t.window=15, s.window="periodic", robust=TRUE)
+fitstl= forecast(stlstp, method= 'rwdrift', h=4)
+summary(fitstl)
+```
+

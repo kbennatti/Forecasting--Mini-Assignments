@@ -1,0 +1,113 @@
+---
+title: "Assignment 4 Part 2"
+author: "Krista Bennatti-Roberts"
+date: "November 13, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(fpp)
+library(knitr)
+library(vars)
+```
+
+Set up and tell R it's a time series
+```{r}
+dh = read.csv("C:/Users/K/Dropbox/Econ Forecasting/Econ R/Assignment 4/as4_data.csv")
+head(dh)
+
+hd = ts(dh, frequency = 4)
+```
+
+Check out correlation:
+
+```{r}
+cor(hd[,3:5])
+```
+
+Home depot sales are highly positively correlated with GDP (approximately 77% of the variation in HD Sales is explained by GDP) and have an extremely weak negative correlation with unemployment (less than .1% of variation in sales is explained by unemployment).
+
+
+Plot log of variables
+```{r}
+hd_log = log(hd[,c(4,5,3)])
+colnames(hd_log)= c('GDP', 'Unemployment Rate', 'HD Sales')
+plot(hd_log, main='Plots of Log of HD Sales, GDP and Unemployment Rate')
+```
+
+Positive correlation between GDP and Home Depot sales is visually evident in the plots of the variables i.e. you can see that sales increase with GDP. Weak correlation with unemployment is also evident.
+
+Figure out how many lags to use in my vector autoregression model:
+```{r}
+hd_select = VARselect(hd_log, season =4)
+hd_select$selection
+```
+
+Three out of four information criterion's recommend a lag of 2 quarters, I will therefore use 2 lags. Note that AIC chose the max lags (default = 10 in the select function). AIC tends to overfit so this recommendation was ignored.
+
+Run the VAR model with 2 lags:
+
+```{r}
+p = hd_select$selection[2]
+p
+
+hd_var = VAR(hd_log, p=p, season = 4)
+summary(hd_var)
+roots(hd_var)
+```
+
+All roots are below 1. Hooray!!
+
+Check residuals:
+```{r}
+acf(residuals(hd_var))
+acf(residuals(hd_var), type="partial", lag.max=10)
+```
+
+Residuals appear random in ACF graphs.ACF: Large spikes above confidence limits in the ACF only appear close to time 0 and in plots where inputs are being compared against themselves. PACFs are random for all graphs with positive lags.
+
+Because all roots are under 1 and residuals are random, requirements are satisfied
+
+Check Granger Causality:
+
+```{r}
+causality(hd_var, cause = c("GDP","Unemployment.Rate"))
+```
+
+The Granger null hypothesis is not rejected at 95% confidence because p = 0.21 which is more than 0.05. This means that there insufficient evidence that GDP or Unemployment rate  Granger-cause Home Depot sales. The instant Granger null hypothesis also is not rejected at 95% confidence, which implies that GDP and the unemployment rate do not Granger-cause changes in Home Depot sales within the same month.
+
+Impulse Response Functions:
+```{r}
+hd_var_irf = irf(hd_var, n.ahead = 24, seed = 222, cumulative = FALSE)
+hd_var_irf$irf$HD.Sales
+par(mfrow=c(1,1))
+plot( irf(hd_var, response ="HD.Sales", n.ahead = 24, boot = TRUE, seed=222) , plot.type = "single")
+```
+
+The IRF plots show that shocks to GDP and Unemployment do not have a significant impact on Home Depot sales from lag 1 through lag 24. (At no point do the IRF lines cross the 95% confidence bands denoted in red.)
+
+Forecast Error Variance Decomposition:
+```{r}
+hd_fevd = fevd(hd_var, n.ahead = 16)
+hd_fevd$HD.Sales
+```
+
+The forecast error variance decomposition shows that the variation in Home Depot sales is mostly explained by itself (by HD Sales). HD Sales accounts for approximately 95% of its own variation at lag 1 and 73% at lag 16. GDP accounts for just 5% of the variation in HD Sales at lag 1, but it explains increasingly more over time, explaining about 16% at lag 16. Unemployment rate explains variation in HD sales more as the number of lags increases, accounting for less than 1% at lag 1 and about 11% at lag 16.
+
+Forecast ahead 4 quarters and plot:
+```{r}
+hd_fcast = predict(hd_var, n.ahead = 4)
+hd_fcast$fcst$HD.Sales
+plot(hd_fcast)
+```
+
+Convert from log to normal forecast:
+```{r}
+exp(hd_fcast$fcst$HD.Sales)
+```
+
+The lower and upper denote the upper and lower limits of the 95% confidence interval around the forecast.
